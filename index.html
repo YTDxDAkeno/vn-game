@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YOU DIDN'T STOP</title>
+
+<style>
+body { margin:0; background:black; overflow:hidden; font-family:Arial; }
+
+#game { width:100vw; height:100vh; position:relative; }
+
+/* Background */
+#bg {
+  position:absolute;
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  filter:brightness(0.6);
+}
+
+/* Character */
+#char {
+  position:absolute;
+  bottom:0;
+  right:5%;
+  height:90%;
+  opacity:0;
+  transition:0.8s;
+}
+
+/* UI */
+#ui {
+  position:absolute;
+  bottom:0;
+  width:100%;
+  padding:20px;
+  background:rgba(0,0,0,0.65);
+  color:white;
+  display:none;
+}
+
+#nameTag {
+  background:red;
+  padding:5px 10px;
+  display:inline-block;
+  margin-bottom:10px;
+}
+
+#text span { display:inline-block; }
+
+/* bewegende Buchstaben */
+.wiggle { animation:wiggle 0.3s infinite; }
+@keyframes wiggle {
+  0%{transform:translate(0,0);}
+  50%{transform:translate(1px,-1px);}
+  100%{transform:translate(-1px,1px);}
+}
+
+button {
+  width:100%;
+  padding:10px;
+  margin-top:5px;
+  background:black;
+  color:white;
+  border:1px solid red;
+}
+
+/* Startscreen */
+#start {
+  position:absolute;
+  width:100%;
+  height:100%;
+  background:url("https://i.imgur.com/qWVdUH1.png") center/cover;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  align-items:center;
+  color:white;
+  z-index:10;
+}
+
+#start input {
+  padding:10px;
+  margin:10px;
+  font-size:16px;
+}
+
+/* Footer */
+.footer {
+  position:absolute;
+  bottom:5px;
+  width:100%;
+  text-align:center;
+  color:gray;
+}
+</style>
+</head>
+
+<body>
+
+<div id="game">
+
+<div id="start">
+  <h1>YOU DIDN'T STOP</h1>
+  <input id="playerName" placeholder="Dein Name">
+  <button id="beginBtn">BEGIN</button>
+</div>
+
+<img id="bg">
+<img id="char" src="https://i.imgur.com/mbFtHtv.jpeg">
+
+<div id="ui">
+  <div id="nameTag"></div>
+  <div id="text"></div>
+  <div id="choices"></div>
+</div>
+
+<div class="footer">Created by DxDAkeno</div>
+
+</div>
+
+<script>
+
+/* MEMORY */
+let loop = parseInt(localStorage.getItem("loop")) || 0;
+let player = localStorage.getItem("name") || "You";
+
+/* STATE */
+let state = {
+  scene: 0,
+  guilt: 0,
+  typing: false,
+  interval: null
+};
+
+/* STORY */
+const story = [
+
+{ name:"…", text:()=> loop>0? "you came back... again." : "you remember.", next:1 },
+
+{ name:"Her", text:()=> "Hi " + player + "... you look pale.", next:2 },
+
+{ name:"Her", text:"What happened?",
+choices:[
+ {text:"Tell the truth", effect:()=>state.guilt+=2, next:3},
+ {text:"Lie", effect:()=>state.guilt-=1, next:6}
+]},
+
+/* TRUTH */
+{ name:"You", text:"I hit someone.", next:4 },
+{ name:"Her", text:"...you what?", next:5 },
+{ name:"Voice", text:"YOU DIDN'T STOP.", next:10 },
+
+/* LIE */
+{ name:"You", text:"Nothing.", next:7 },
+{ name:"Her", text:"you're lying.", next:8 },
+{ name:"Voice", text:"YOU LEFT ME.", next:10 },
+
+/* COMMON */
+{ name:"Voice", text:"YOU KILLED ME.", next:11 },
+
+{ name:"Voice", text:"say it.",
+choices:[
+ {text:"I killed you", effect:()=>state.guilt+=2, next:12},
+ {text:"Not my fault", effect:()=>state.guilt-=2, next:15}
+]},
+
+/* TRUE */
+{ name:"Something", text:"finally.", next:13 },
+{ name:"Something", text:()=> "you remember, " + player + ".", next:14 },
+{ name:"", text:"TRUE END", next:null },
+
+/* BAD */
+{ name:"Something", text:"still lying.", next:16 },
+{ name:"Something", text:"you don’t wake up.", next:17 },
+
+/* META LOOP */
+{ name:"???", text:()=> "why are you still here, " + player + "?", next:18 },
+{ name:"???", text:"you already saw this.", next:19 },
+{ name:"???", text:"it doesn't change.", next:0 }
+
+];
+
+/* START BUTTON FIXED */
+document.getElementById("beginBtn").addEventListener("click", (e)=>{
+  e.stopPropagation();
+
+  player = document.getElementById("playerName").value || "You";
+  localStorage.setItem("name", player);
+
+  document.getElementById("start").style.display = "none";
+  document.getElementById("ui").style.display = "block";
+
+  document.getElementById("bg").src = "https://i.imgur.com/mbFtHtv.jpeg";
+  document.getElementById("char").style.opacity = "1";
+
+  state.scene = 0;
+  loadScene();
+});
+
+/* INPUT FIX */
+document.getElementById("playerName").addEventListener("click",(e)=>{
+  e.stopPropagation();
+});
+
+/* LOAD */
+function loadScene(){
+  let s = story[state.scene];
+
+  let text = typeof s.text === "function" ? s.text() : s.text;
+
+  document.getElementById("nameTag").innerText = s.name;
+  document.getElementById("choices").innerHTML = "";
+
+  typeText(text);
+
+  if(s.choices){
+    s.choices.forEach(c=>{
+      let b = document.createElement("button");
+      b.innerText = c.text;
+
+      b.onclick = ()=>{
+        if(c.effect) c.effect();
+        state.scene = c.next;
+        loadScene();
+      };
+
+      document.getElementById("choices").appendChild(b);
+    });
+
+  } else if(s.next !== null){
+    let b = document.createElement("button");
+    b.innerText = "Continue";
+    b.onclick = nextScene;
+    document.getElementById("choices").appendChild(b);
+  } else {
+    // END → Loop erhöhen
+    loop++;
+    localStorage.setItem("loop", loop);
+  }
+}
+
+/* NEXT */
+function nextScene(){
+  if(state.typing){
+    finishText();
+    return;
+  }
+
+  state.scene = story[state.scene].next;
+  loadScene();
+}
+
+/* TEXT SYSTEM */
+function typeText(text){
+  let el = document.getElementById("text");
+  el.innerHTML = "";
+  let i = 0;
+  state.typing = true;
+
+  state.interval = setInterval(()=>{
+    let char = text[i];
+
+    if(char === " "){
+      el.innerHTML += " ";
+    } else {
+      let span = document.createElement("span");
+      span.textContent = char;
+
+      if(Math.random() < 0.08){
+        span.classList.add("wiggle");
+      }
+
+      el.appendChild(span);
+    }
+
+    i++;
+
+    if(i >= text.length){
+      clearInterval(state.interval);
+      state.typing = false;
+    }
+
+  },30);
+}
+
+function finishText(){
+  clearInterval(state.interval);
+  state.typing = false;
+}
+
+/* CLICK FIX (WICHTIG) */
+document.addEventListener("click",(e)=>{
+  if(
+    e.target.tagName === "BUTTON" ||
+    e.target.tagName === "INPUT" ||
+    e.target.closest("#start")
+  ) return;
+
+  if(document.getElementById("ui").style.display === "block"){
+    nextScene();
+  }
+});
+
+</script>
+
+</body>
+</html>
