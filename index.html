@@ -1,309 +1,628 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>YOU DIDN'T STOP</title>
 
 <style>
-body { margin:0; background:black; overflow:hidden; font-family:Arial; }
+  :root {
+    --text-color: #fff;
+    --bg-overlay: rgba(0,0,0,0.85);
+    --blood-color: #8a0303;
+  }
 
-#game { width:100vw; height:100vh; position:relative; }
+  body { margin:0; background:black; overflow:hidden; font-family: 'Courier New', Courier, monospace; cursor: default; }
+  
+  #game { width:100vw; height:100vh; position:relative; overflow: hidden; }
 
-/* Background */
-#bg {
-  position:absolute;
-  width:100%;
-  height:100%;
-  object-fit:cover;
-  filter:brightness(0.6);
-}
+  /* Dynamic Backgrounds */
+  #bg {
+    position:absolute; width:100%; height:100%; object-fit:cover;
+    filter:brightness(0.6); transition: filter 2s, transform 0.1s, background-image 2s;
+    background-size: cover; background-position: center;
+  }
 
-/* Character */
-#char {
-  position:absolute;
-  bottom:0;
-  right:5%;
-  height:90%;
-  opacity:0;
-  transition:0.8s;
-}
+  /* Vignette / Guilt Bleed */
+  #vignette {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    box-shadow: inset 0 0 0px var(--blood-color);
+    pointer-events: none; transition: box-shadow 2s ease-in-out; z-index: 3;
+  }
 
-/* UI */
-#ui {
-  position:absolute;
-  bottom:0;
-  width:100%;
-  padding:20px;
-  background:rgba(0,0,0,0.65);
-  color:white;
-  display:none;
-}
+  /* CRT & Static */
+  #crt {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%);
+    background-size: 100% 4px; pointer-events: none; z-index: 4; opacity: 0.5;
+  }
 
-#nameTag {
-  background:red;
-  padding:5px 10px;
-  display:inline-block;
-  margin-bottom:10px;
-}
+  .static-overlay {
+    background: url('https://i.imgur.com/3YQ6V0o.gif') center/cover;
+    opacity: 0.15; mix-blend-mode: screen;
+  }
 
-#text span { display:inline-block; }
+  /* Character */
+  #char {
+    position:absolute; bottom:0; right:5%; height:90%; opacity:0;
+    transition: opacity 0.8s, filter 0.2s, transform 0.5s; z-index: 2;
+  }
 
-/* bewegende Buchstaben */
-.wiggle { animation:wiggle 0.3s infinite; }
-@keyframes wiggle {
-  0%{transform:translate(0,0);}
-  50%{transform:translate(1px,-1px);}
-  100%{transform:translate(-1px,1px);}
-}
+  /* UI */
+  #ui {
+    position:absolute; bottom:20px; left: 50%; transform: translateX(-50%);
+    width:90%; max-width: 800px; padding:20px; background: var(--bg-overlay);
+    color: var(--text-color); border: 1px solid rgba(255,255,255,0.1);
+    display:none; z-index: 5; box-shadow: 0 0 20px rgba(0,0,0,1);
+    backdrop-filter: blur(5px);
+  }
 
-button {
-  width:100%;
-  padding:10px;
-  margin-top:5px;
-  background:black;
-  color:white;
-  border:1px solid red;
-}
+  #nameTag {
+    background: var(--blood-color); color: white; padding: 5px 15px;
+    display: inline-block; margin-bottom: 15px; font-weight: bold;
+    letter-spacing: 2px; border: 1px solid red; position: absolute;
+    top: -20px; left: -1px; text-transform: uppercase;
+  }
 
-/* Startscreen */
-#start {
-  position:absolute;
-  width:100%;
-  height:100%;
-  background:url("https://i.imgur.com/qWVdUH1.png") center/cover;
-  display:flex;
-  flex-direction:column;
-  justify-content:center;
-  align-items:center;
-  color:white;
-  z-index:10;
-}
+  #text { font-size: 1.2rem; line-height: 1.6; min-height: 4rem; text-shadow: 1px 1px 2px black; }
+  #text span { display:inline-block; }
 
-#start input {
-  padding:10px;
-  margin:10px;
-  font-size:16px;
-}
+  /* Choices */
+  #choices { margin-top: 15px; display: flex; flex-direction: column; gap: 8px; }
+  
+  button {
+    width:100%; padding:12px; background: rgba(0,0,0,0.9); color: gray;
+    border: 1px solid rgba(255,255,255,0.2); font-family: inherit; font-size: 1rem;
+    cursor: pointer; transition: 0.3s; text-align: left;
+  }
+  button:hover { background: rgba(138,3,3,0.3); color: white; border-color: red; padding-left: 20px; }
 
-/* Footer */
-.footer {
-  position:absolute;
-  bottom:5px;
-  width:100%;
-  text-align:center;
-  color:gray;
-}
+  /* Fake Phone Notification */
+  #phone-notif {
+    position: absolute; top: -100px; right: 20px; width: 300px;
+    background: rgba(255,255,255,0.9); color: black; padding: 15px;
+    border-radius: 10px; font-family: Arial, sans-serif; box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+    transition: top 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); z-index: 100;
+  }
+  .phone-header { font-size: 0.8rem; color: gray; margin-bottom: 5px; }
+  .phone-body { font-weight: bold; }
+
+  /* Horror Animations */
+  .wiggle { animation: wiggle 0.1s infinite; color: red; font-weight: bold; }
+  @keyframes wiggle { 0% {transform:translate(0,0);} 50% {transform:translate(2px,-2px);} 100% {transform:translate(-2px,2px);} }
+
+  .shake { animation: shake 0.3s infinite; }
+  @keyframes shake {
+    0% { transform: translate(2px, 1px) rotate(0deg); }
+    50% { transform: translate(-2px, -1px) rotate(-1deg); }
+    100% { transform: translate(1px, 2px) rotate(1deg); }
+  }
+
+  .pulse { animation: pulse 1.5s infinite; }
+  @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.02); } 100% { transform: scale(1); } }
+
+  .glitch-filter { filter: invert(1) hue-rotate(90deg) contrast(3); }
+  .blur-filter { filter: blur(5px) brightness(0.4); }
+
+  .timer-bar { height: 2px; background: red; width: 100%; transition: width linear; display: none; margin-top: 10px; }
+
+  /* Startscreen */
+  #start {
+    position:absolute; width:100%; height:100%; background: black;
+    display:flex; flex-direction:column; justify-content:center; align-items:center;
+    color:white; z-index:10;
+  }
+  #start h1 { font-size: 4rem; letter-spacing: 5px; text-shadow: 0 0 10px red; margin-bottom: 5px; }
+  #start input {
+    padding:12px; margin:20px; font-size:18px; background: rgba(0,0,0,0.8);
+    color: white; border: 1px solid #555; text-align: center; text-transform: uppercase;
+  }
+  #start input:focus { outline: none; border-color: red; box-shadow: 0 0 10px red; }
 </style>
 </head>
 
 <body>
 
 <div id="game">
+  <div id="start">
+    <h1 id="mainTitle">YOU DIDN'T STOP</h1>
+    <p id="loopCounterMsg" style="color:red; display:none;"></p>
+    <input id="playerName" placeholder="YOUR NAME" autocomplete="off" maxlength="15">
+    <button id="beginBtn" style="width: auto; padding: 10px 50px; font-size: 1.2rem;">WAKE UP</button>
+  </div>
 
-<div id="start">
-  <h1>YOU DIDN'T STOP</h1>
-  <input id="playerName" placeholder="Dein Name">
-  <button id="beginBtn">BEGIN</button>
-</div>
+  <div id="bg"></div>
+  <div id="vignette"></div>
+  <div id="crt"></div>
+  <img id="char" src="">
 
-<img id="bg">
-<img id="char" src="https://i.imgur.com/mbFtHtv.jpeg">
+  <div id="phone-notif">
+    <div class="phone-header">Message from: Unknown</div>
+    <div class="phone-body" id="phone-text">I know what you did.</div>
+  </div>
 
-<div id="ui">
-  <div id="nameTag"></div>
-  <div id="text"></div>
-  <div id="choices"></div>
-</div>
-
-<div class="footer">Created by DxDAkeno</div>
-
+  <div id="ui">
+    <div id="nameTag"></div>
+    <div id="text"></div>
+    <div class="timer-bar" id="choiceTimer"></div>
+    <div id="choices"></div>
+  </div>
 </div>
 
 <script>
+/* --- META & SYSTEM CONSOLE --- */
+console.log("%c WHY ARE YOU LOOKING HERE?", "color: red; font-size: 20px; font-weight: bold;");
+console.log("%c YOU CANNOT CODE YOUR WAY OUT OF GUILT.", "color: gray; font-size: 14px;");
 
-/* MEMORY */
+/* --- MEMORY & VARIABLES --- */
 let loop = parseInt(localStorage.getItem("loop")) || 0;
 let player = localStorage.getItem("name") || "You";
+let date = new Date();
+let currentHour = date.getHours();
+let timeString = date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
 
-/* STATE */
+// Images (Placeholders that set the mood)
+const imgRoom = "url('https://images.unsplash.com/photo-1519999482648-25049ddd37b1?q=80&w=2000&auto=format&fit=crop')"; // Dark bedroom
+const imgRain = "url('https://images.unsplash.com/photo-1515694346937-94d85e41e6f0?q=80&w=2000&auto=format&fit=crop')"; // Rainy road
+const imgStatic = "url('https://i.imgur.com/3YQ6V0o.gif')"; // Static
+
+// Meta changes on start based on loop
+if(loop > 0) {
+  document.getElementById("loopCounterMsg").style.display = "block";
+  document.getElementById("loopCounterMsg").innerText = `LOOP ${loop}. YOU CAN'T FIX IT.`;
+  document.getElementById("mainTitle").innerText = "IT HAPPENED AGAIN";
+  if(loop > 2) document.getElementById("start").classList.add("static-overlay");
+}
+
+/* --- STATE --- */
 let state = {
-  scene: 0,
-  guilt: 0,
+  currentSceneId: "start",
+  guilt: loop * 10, // Guilt carries over
   typing: false,
-  interval: null
+  interval: null,
+  choiceTimeout: null,
+  currentFullText: "",
+  flags: { checkedTV: false, checkedCar: false }
 };
 
-/* STORY */
-const story = [
+/* --- ENGINE UTILS --- */
+// Zalgo text generator for ghost dialogue
+function zalgo(text) {
+  if (loop === 0 && !state.currentSceneId.includes("nightmare")) return text;
+  const chars = ['\u030d', '\u030e', '\u0304', '\u0305', '\u033f', '\u0311', '\u0306', '\u0310', '\u0352', '\u0357', '\u0351', '\u0301', '\u0300', '\u0302'];
+  return text.split('').map(c => c + (Math.random() < 0.3 ? chars[Math.floor(Math.random() * chars.length)] : '')).join('');
+}
 
-{ name:"…", text:()=> loop>0? "you came back... again." : "you remember.", next:1 },
+function updateGuiltBleed() {
+  let shadow = state.guilt * 2;
+  document.getElementById("vignette").style.boxShadow = `inset 0 0 ${shadow}px var(--blood-color)`;
+}
 
-{ name:"Her", text:()=> "Hi " + player + "... you look pale.", next:2 },
+/* --- THE STORY SCRIPT --- */
+const story = {
+  "start": { 
+    name: "", 
+    text: () => `It is ${timeString}. Your head is pounding.`, 
+    bg: imgRoom,
+    next: "wake_1"
+  },
+  
+  "wake_1": { 
+    name: "Inner Voice", 
+    text: "You barely made it home last night. The storm was blinding.", 
+    next: "wake_choice" 
+  },
+  
+  "wake_choice": { 
+    name: "", 
+    text: "What do you want to do?",
+    choices: [
+      { text: "Check the TV", effect: () => state.flags.checkedTV = true, next: "check_tv" },
+      { text: "Go to the garage. Check the car.", effect: () => state.flags.checkedCar = true, next: "check_car" },
+      { text: "Look out the window", next: "look_window" }
+    ]
+  },
 
-{ name:"Her", text:"What happened?",
-choices:[
- {text:"Tell the truth", effect:()=>state.guilt+=2, next:3},
- {text:"Lie", effect:()=>state.guilt-=1, next:6}
-]},
+  /* ACT 1: INVESTIGATION */
+  "check_tv": { 
+    name: "News Anchor", 
+    text: "...police are still looking for the driver involved in a hit-and-run on Route 9 late last night. The victim was...", 
+    speed: 60,
+    action: () => triggerShake(),
+    next: "tv_react" 
+  },
+  "tv_react": { name: player, text: "No. No, it was just a deer. I hit a deer.", effect: () => state.guilt += 5, next: "phone_rings" },
 
-/* TRUTH */
-{ name:"You", text:"I hit someone.", next:4 },
-{ name:"Her", text:"...you what?", next:5 },
-{ name:"Voice", text:"YOU DIDN'T STOP.", next:10 },
+  "check_car": { 
+    name: "Inner Voice", 
+    text: "The garage is cold. You look at the front bumper of your car.", 
+    bg: "none",
+    action: () => document.getElementById("bg").style.backgroundColor = "#111",
+    next: "car_react" 
+  },
+  "car_react": { 
+    name: "Inner Voice", 
+    text: "The headlight is smashed. There is a massive dent. And... something red on the grill.", 
+    effect: () => state.guilt += 10,
+    next: "phone_rings" 
+  },
 
-/* LIE */
-{ name:"You", text:"Nothing.", next:7 },
-{ name:"Her", text:"you're lying.", next:8 },
-{ name:"Voice", text:"YOU LEFT ME.", next:10 },
+  "look_window": {
+    name: "Inner Voice",
+    text: "It's still raining outside. Just like last night. The roads are slick.",
+    bg: imgRain,
+    next: "phone_rings"
+  },
 
-/* COMMON */
-{ name:"Voice", text:"YOU KILLED ME.", next:11 },
+  /* ACT 2: PARANOIA */
+  "phone_rings": { 
+    name: "", 
+    text: "Your phone vibrates on the table.", 
+    action: () => showNotification("Unknown", "Did you think nobody saw?"),
+    next: "phone_react" 
+  },
+  "phone_react": { 
+    name: player, 
+    text: "Who is this?!", 
+    speed: 20,
+    next: "door_knock" 
+  },
 
-{ name:"Voice", text:"say it.",
-choices:[
- {text:"I killed you", effect:()=>state.guilt+=2, next:12},
- {text:"Not my fault", effect:()=>state.guilt-=2, next:15}
-]},
+  "door_knock": {
+    name: "",
+    text: "*KNOCK KNOCK KNOCK*",
+    action: () => { triggerShake(); hideNotification(); },
+    next: "door_knock_2"
+  },
+  "door_knock_2": {
+    name: "Inner Voice",
+    text: "Someone is at the front door.",
+    choices: [
+      { text: "Open it", next: "door_open" },
+      { text: "Ignore it", next: "door_ignore" }
+    ]
+  },
 
-/* TRUE */
-{ name:"Something", text:"finally.", next:13 },
-{ name:"Something", text:()=> "you remember, " + player + ".", next:14 },
-{ name:"", text:"TRUE END", next:null },
+  "door_ignore": {
+    name: "",
+    text: "You step back. But the knocking doesn't stop. It gets louder.",
+    action: () => document.getElementById("game").classList.add("pulse"),
+    next: "door_open"
+  },
 
-/* BAD */
-{ name:"Something", text:"still lying.", next:16 },
-{ name:"Something", text:"you don’t wake up.", next:17 },
+  "door_open": {
+    name: "",
+    text: "You open the door. The hallway is completely dark.",
+    action: () => { 
+      document.getElementById("game").classList.remove("pulse");
+      document.getElementById("bg").style.backgroundImage = "none";
+      document.getElementById("bg").style.backgroundColor = "black";
+    },
+    next: "nightmare_start"
+  },
 
-/* META LOOP */
-{ name:"???", text:()=> "why are you still here, " + player + "?", next:18 },
-{ name:"???", text:"you already saw this.", next:19 },
-{ name:"???", text:"it doesn't change.", next:0 }
+  /* ACT 3: NIGHTMARE / CONFRONTATION */
+  "nightmare_start": {
+    name: "???",
+    text: zalgo("I waited for you to come back."),
+    speed: 100, // Very slow
+    action: () => {
+      document.title = "SHE IS HERE";
+      document.getElementById("char").src = "https://i.imgur.com/mbFtHtv.jpeg"; // The entity image
+      document.getElementById("char").style.opacity = 0.8;
+      document.getElementById("crt").classList.add("static-overlay");
+    },
+    next: "nightmare_2"
+  },
+  
+  "nightmare_2": { 
+    name: "Her", 
+    text: () => loop > 0 ? zalgo("We are doing this again, " + player + ".") : "You look pale. What happened last night?", 
+    next: "nightmare_choice" 
+  },
 
-];
+  "nightmare_choice": { 
+    name: "Her", 
+    text: "Tell me.",
+    timer: 5000, // 5 seconds to choose
+    timeoutNext: "time_up", // Where it goes if time runs out
+    choices: [
+      { text: "I hit someone.", effect: () => state.guilt += 5, next: "truth_path" },
+      { text: "Nothing. I hit a deer.", effect: () => state.guilt -= 5, next: "lie_path" }
+    ]
+  },
 
-/* START BUTTON FIXED */
-document.getElementById("beginBtn").addEventListener("click", (e)=>{
+  "time_up": {
+    name: "Her",
+    text: zalgo("SILENCE WON'T SAVE YOU."),
+    action: () => { triggerShake(); setBgRed(); },
+    next: "voice_blame"
+  },
+
+  /* PATHS */
+  "truth_path": { name: player, text: "I hit someone. I panicked. I drove away.", next: "truth_2" },
+  "truth_2": { name: "Her", text: "I know.", next: "voice_blame" },
+
+  "lie_path": { name: player, text: "It was just an animal. I swear.", next: "lie_2" },
+  "lie_2": { 
+    name: "Her", 
+    text: "LIAR.", 
+    speed: 10,
+    action: () => { 
+      document.getElementById("char").classList.add("glitch-filter"); 
+      setTimeout(()=>document.getElementById("char").classList.remove("glitch-filter"), 500);
+      triggerShake();
+    },
+    next: "voice_blame_lie"
+  },
+
+  /* THE LOOP CLIMAX */
+  "voice_blame": { 
+    name: "Voice", text: zalgo("YOU DIDN'T STOP."), 
+    action: () => setBgRed(),
+    next: "voice_blame_2"
+  },
+  "voice_blame_lie": { 
+    name: "Voice", text: zalgo("YOU LEFT ME IN THE RAIN."), 
+    action: () => setBgRed(),
+    next: "voice_blame_2"
+  },
+
+  "voice_blame_2": { 
+    name: "Voice", text: zalgo("YOU KILLED ME."), 
+    speed: 120,
+    next: "confess_choice" 
+  },
+
+  "confess_choice": { 
+    name: "Voice", 
+    text: "SAY IT.",
+    choices: [
+      { text: "I killed you.", effect: () => state.guilt += 10, next: "ending_true" },
+      { text: "It was an accident!", effect: () => state.guilt -= 10, isFake: true, next: "ending_bad" } // isFake makes it run away
+    ]
+  },
+
+  /* ENDINGS */
+  "ending_true": { name: "Her", text: "Finally. You admit it.", next: "ending_true_2" },
+  "ending_true_2": { name: "Her", text: "Now you can stay with me forever.", next: "end_meta_reset", action: () => document.getElementById("char").style.transform = "scale(1.5)" },
+  
+  "ending_bad": { name: "Her", text: zalgo("STILL RUNNING AWAY?"), next: "ending_bad_2", action: () => triggerShake() },
+  "ending_bad_2": { name: "Her", text: "Then we start over.", next: "end_meta_reset", action: () => document.body.classList.add("blur-filter") },
+
+  "end_meta_reset": { 
+    name: "SYSTEM", 
+    text: "REBOOTING...", 
+    speed: 50,
+    next: null,
+    action: () => { 
+      document.getElementById("char").style.opacity = 0; 
+      document.getElementById("bg").style.backgroundImage = imgStatic; 
+    }
+  }
+};
+
+/* --- CORE LOGIC --- */
+
+document.getElementById("beginBtn").addEventListener("click", (e) => {
   e.stopPropagation();
-
-  player = document.getElementById("playerName").value || "You";
+  let inputName = document.getElementById("playerName").value.trim();
+  if(inputName) player = inputName;
   localStorage.setItem("name", player);
 
   document.getElementById("start").style.display = "none";
   document.getElementById("ui").style.display = "block";
 
-  document.getElementById("bg").src = "https://i.imgur.com/mbFtHtv.jpeg";
-  document.getElementById("char").style.opacity = "1";
+  // Hide cursor for immersion
+  document.body.style.cursor = "none";
 
-  state.scene = 0;
+  state.currentSceneId = "start";
   loadScene();
 });
 
-/* INPUT FIX */
-document.getElementById("playerName").addEventListener("click",(e)=>{
-  e.stopPropagation();
-});
+function loadScene() {
+  clearTimeout(state.choiceTimeout);
+  document.getElementById("choiceTimer").style.display = "none";
+  document.getElementById("choiceTimer").style.width = "100%";
 
-/* LOAD */
-function loadScene(){
-  let s = story[state.scene];
+  let s = story[state.currentSceneId];
+  if(!s) return;
 
-  let text = typeof s.text === "function" ? s.text() : s.text;
+  // Backgrounds & Actions
+  if(s.bg) {
+      document.getElementById("bg").style.backgroundImage = s.bg;
+      document.getElementById("bg").style.backgroundColor = "transparent";
+  }
+  if(s.action) s.action();
+  updateGuiltBleed();
+
+  let rawText = typeof s.text === "function" ? s.text() : s.text;
+  state.currentFullText = rawText;
 
   document.getElementById("nameTag").innerText = s.name;
-  document.getElementById("choices").innerHTML = "";
+  document.getElementById("nameTag").style.display = s.name ? "inline-block" : "none";
+  
+  let choicesDiv = document.getElementById("choices");
+  choicesDiv.innerHTML = "";
+  choicesDiv.style.display = "none"; 
 
-  typeText(text);
+  typeText(rawText, s.speed || 40, () => {
+    if(s.choices) {
+      choicesDiv.style.display = "flex";
+      s.choices.forEach(c => {
+        let b = document.createElement("button");
+        b.innerText = c.text;
+        
+        // The "Sentient/Fake" Button logic
+        if(c.isFake) {
+          b.addEventListener("mouseover", () => {
+            b.innerText = "YOU CAN'T RUN";
+            b.style.color = "red";
+          });
+          b.addEventListener("mouseout", () => {
+            b.innerText = c.text;
+            b.style.color = "gray";
+          });
+        }
 
-  if(s.choices){
-    s.choices.forEach(c=>{
-      let b = document.createElement("button");
-      b.innerText = c.text;
+        b.onclick = (e) => {
+          e.stopPropagation();
+          clearTimeout(state.choiceTimeout);
+          if(c.effect) c.effect();
+          state.currentSceneId = c.next;
+          loadScene();
+        };
+        choicesDiv.appendChild(b);
+      });
 
-      b.onclick = ()=>{
-        if(c.effect) c.effect();
-        state.scene = c.next;
-        loadScene();
-      };
+      // Timed Choice Logic
+      if(s.timer) {
+        let bar = document.getElementById("choiceTimer");
+        bar.style.display = "block";
+        bar.style.transition = `width ${s.timer}ms linear`;
+        // Small delay to ensure CSS transition triggers
+        setTimeout(() => bar.style.width = "0%", 50);
 
-      document.getElementById("choices").appendChild(b);
-    });
+        state.choiceTimeout = setTimeout(() => {
+          state.currentSceneId = s.timeoutNext;
+          loadScene();
+        }, s.timer);
+      }
 
-  } else if(s.next !== null){
-    let b = document.createElement("button");
-    b.innerText = "Continue";
-    b.onclick = nextScene;
-    document.getElementById("choices").appendChild(b);
-  } else {
-    // END → Loop erhöhen
-    loop++;
-    localStorage.setItem("loop", loop);
-  }
+    } else if(s.next === null) {
+      // END LOOP
+      loop++;
+      localStorage.setItem("loop", loop);
+      setTimeout(() => location.reload(), 3000); 
+    }
+  });
 }
 
-/* NEXT */
-function nextScene(){
-  if(state.typing){
-    finishText();
-    return;
-  }
-
-  state.scene = story[state.scene].next;
-  loadScene();
-}
-
-/* TEXT SYSTEM */
-function typeText(text){
+function typeText(text, speed, onComplete) {
   let el = document.getElementById("text");
   el.innerHTML = "";
   let i = 0;
   state.typing = true;
 
-  state.interval = setInterval(()=>{
+  clearInterval(state.interval);
+  
+  state.interval = setInterval(() => {
     let char = text[i];
-
-    if(char === " "){
+    if(char === " ") {
       el.innerHTML += " ";
     } else {
       let span = document.createElement("span");
       span.textContent = char;
-
-      if(Math.random() < 0.08){
-        span.classList.add("wiggle");
+      // Random horror wiggle during nightmares
+      if(state.currentSceneId.includes("nightmare") || state.currentSceneId.includes("blame")) {
+        if(Math.random() < 0.1) span.classList.add("wiggle");
       }
-
       el.appendChild(span);
     }
-
     i++;
 
-    if(i >= text.length){
+    if(i >= text.length) {
       clearInterval(state.interval);
       state.typing = false;
+      if(onComplete) onComplete();
     }
-
-  },30);
+  }, speed); 
 }
 
-function finishText(){
+function finishText() {
+  // Prevent skipping unskippable slow text
+  let s = story[state.currentSceneId];
+  if(s.speed > 80) return; 
+
   clearInterval(state.interval);
   state.typing = false;
+  
+  let el = document.getElementById("text");
+  el.innerHTML = "";
+  
+  for(let char of state.currentFullText) {
+      if(char === " ") {
+          el.innerHTML += " ";
+          continue;
+      }
+      let span = document.createElement("span");
+      span.textContent = char;
+      el.appendChild(span);
+  }
+
+  let choicesDiv = document.getElementById("choices");
+  if(s.choices && choicesDiv.innerHTML === "") {
+      // Fast forward the timer logic if skipped
+      loadSceneChoices(s, choicesDiv);
+  } else if (s.next === null && choicesDiv.innerHTML === "") {
+      loop++;
+      localStorage.setItem("loop", loop);
+      setTimeout(() => location.reload(), 3000);
+  }
 }
 
-/* CLICK FIX (WICHTIG) */
-document.addEventListener("click",(e)=>{
-  if(
-    e.target.tagName === "BUTTON" ||
-    e.target.tagName === "INPUT" ||
-    e.target.closest("#start")
-  ) return;
+function loadSceneChoices(s, choicesDiv) {
+    choicesDiv.style.display = "flex";
+    s.choices.forEach(c => {
+    let b = document.createElement("button");
+    b.innerText = c.text;
+    if(c.isFake) {
+        b.addEventListener("mouseover", () => { b.innerText = "YOU CAN'T RUN"; b.style.color = "red"; });
+        b.addEventListener("mouseout", () => { b.innerText = c.text; b.style.color = "gray"; });
+    }
+    b.onclick = (e) => {
+        e.stopPropagation();
+        clearTimeout(state.choiceTimeout);
+        if(c.effect) c.effect();
+        state.currentSceneId = c.next;
+        loadScene();
+    };
+    choicesDiv.appendChild(b);
+    });
+}
 
-  if(document.getElementById("ui").style.display === "block"){
-    nextScene();
+function nextScene() {
+  if(state.typing) { finishText(); return; }
+  
+  let s = story[state.currentSceneId];
+  if(s.choices) return; 
+
+  if(s.next) {
+    state.currentSceneId = s.next;
+    loadScene();
   }
+}
+
+/* --- EVENT LISTENERS --- */
+document.addEventListener("click", (e) => {
+  if(e.target.tagName === "BUTTON" || e.target.tagName === "INPUT" || e.target.closest("#start")) return;
+  if(document.getElementById("ui").style.display === "block") nextScene();
 });
+document.getElementById("playerName").addEventListener("click", (e) => e.stopPropagation());
+
+/* --- FX FUNCTIONS --- */
+function triggerShake() {
+  document.getElementById("game").classList.add("shake");
+  setTimeout(() => document.getElementById("game").classList.remove("shake"), 300);
+}
+
+function setBgRed() {
+  document.getElementById("bg").style.filter = "brightness(0.4) sepia(1) hue-rotate(-50deg) saturate(10)";
+}
+
+function showNotification(title, text) {
+  let notif = document.getElementById("phone-notif");
+  document.querySelector(".phone-header").innerText = "Message from: " + title;
+  document.getElementById("phone-text").innerText = text;
+  notif.style.top = "20px";
+  // Auto hide after 4 seconds
+  setTimeout(hideNotification, 4000);
+}
+
+function hideNotification() {
+  document.getElementById("phone-notif").style.top = "-100px";
+}
 
 </script>
-
 </body>
 </html>
